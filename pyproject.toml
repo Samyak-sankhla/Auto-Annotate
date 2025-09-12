@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto_annotator"
+version = "0.1.0"
+description = "Auto annotation pipeline (frame-extract -> dedup -> GroundingDINO -> review)"
+authors = [{name = "WRAITH", email = "abc@example.com"}]
+requires-python = ">=3.8"
+
+# runtime dependencies
+dependencies = [
+  "pandas",
+  "numpy",
+  "opencv-python",
+  "torch",
+  "tqdm",
+  "groundingdino"
+]
+
+[tool.setuptools]
+packages = ["auto_annotator"]
+
+[project.scripts]
+auto-extract   = "auto_annotator.video_extractor:main"
+auto-dedup     = "auto_annotator.dedup:main"
+auto-annotate  = "auto_annotator.runner:main"

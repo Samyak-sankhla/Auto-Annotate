@@ -1,0 +1,53 @@
+# -------------------
+# Python
+# -------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+*.log
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# -------------------
+# Build / Packaging
+# -------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# -------------------
+# Jupyter / Notebooks
+# -------------------
+.ipynb_checkpoints
+
+# -------------------
+# VSCode / IDEs
+# -------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# -------------------
+# OS-specific
+# -------------------
+.DS_Store
+Thumbs.db
+
+# -------------------
+# Project-specific
+# -------------------
+# Don't track outputs and test video data
+output/
+TestVideo/
