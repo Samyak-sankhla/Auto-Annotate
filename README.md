@@ -56,7 +56,7 @@ auto_annotator/                # repository root
 
 ```bash
 # Clone repository
-git clone (https://github.com/Wraith-Int-Tech/autoannotation.git)
+git clone https://github.com/Wraith-Int-Tech/autoannotation.git
 cd auto_annotator
 
 # Create virtual environment
@@ -72,7 +72,7 @@ conda activate gdino
 pip install -e . # (run this code where .toml file is present. This will only install our module, not the grounding_dino module.)
 
 ---
-
+```
 ## 📜 Usage
 
 ### 1. Extract frames from a video
