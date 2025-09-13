@@ -83,7 +83,7 @@ Extracts frames at **1 FPS**.
 
 ### 2. Deduplicate frames
 ```bash
-auto-dedup 
+auto-dedup --input_dir "input-directory" [--threshold <float value between 0-1>]
 ```
 
 ### 3. Run GroundingDINO auto-annotation
