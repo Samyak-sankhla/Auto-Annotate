@@ -56,7 +56,7 @@ auto_annotator/                # repository root
 
 ```bash
 # Clone repository
-git clone <your-repo-url>
+git clone (https://github.com/Wraith-Int-Tech/autoannotation.git)
 cd auto_annotator
 
 # Create virtual environment
