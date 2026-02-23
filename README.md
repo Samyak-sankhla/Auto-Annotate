@@ -22,21 +22,28 @@ autoannotation/
 ## Installation
 
 ```bash
-git clone https://github.com/Wraith-Int-Tech/autoannotation.git
+git clone --recurse-submodules https://github.com/Samyak-sankhla/Auto-Annotate.git
 cd autoannotation
 
 python -m venv venv
 venv\Scripts\activate
 
+pip install -e GroundingDINO
 pip install -e .
+```
+
+If you already cloned the repo without submodules:
+
+```bash
+git submodule update --init --recursive
 ```
 
 ### GroundingDINO setup
 
-Install GroundingDINO (from source or your preferred method), then set the required paths as environment variables:
+Download the GroundingDINO checkpoint and set the required paths as environment variables:
 
 ```powershell
-$env:GROUNDING_DINO_CONFIG_PATH = "C:\path\to\GroundingDINO_SwinT_OGC.py"
+$env:GROUNDING_DINO_CONFIG_PATH = "C:\path\to\Auto-Annotate\GroundingDINO\groundingdino\config\GroundingDINO_SwinT_OGC.py"
 $env:GROUNDING_DINO_CHECKPOINT_PATH = "C:\path\to\groundingdino_swint_ogc.pth"
 ```
 
@@ -115,5 +122,5 @@ The review window supports quick review and editing:
 - fastdup
 - tqdm
 - Tkinter (bundled with most Python installs)
-- GroundingDINO (installed separately)
+- GroundingDINO (included as submodule)
 
