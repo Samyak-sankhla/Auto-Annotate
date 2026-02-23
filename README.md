@@ -38,6 +38,12 @@ If you already cloned the repo without submodules:
 git submodule update --init --recursive
 ```
 
+Optional helper script (Windows PowerShell):
+
+```powershell
+scripts\setup_gdino.ps1
+```
+
 ### GroundingDINO setup
 
 Download the GroundingDINO checkpoint and set the required paths as environment variables:
