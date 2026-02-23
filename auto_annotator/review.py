@@ -4,7 +4,7 @@ import cv2
 import tkinter as tk
 from tkinter import simpledialog
 import argparse
-from .config import logger  # Import logger from config
+from .config import logger
 
 # ------------------- Helpers -------------------
 def from_normalized_center(bbox, frame_w, frame_h):
@@ -20,16 +20,19 @@ def to_normalized_center(cx, cy, bw, bh, frame_w, frame_h):
 
 
 def draw_annotations(frame, objects, status, preview_box=None, hovered_idx=None, mode="VIEW", zoom=1.0):
-    # resize for zoom
-    h, w = frame.shape[:2]
-    frame = cv2.resize(frame, (int(w * zoom), int(h * zoom)))
+    orig_h, orig_w = frame.shape[:2]
+    frame = cv2.resize(frame, (int(orig_w * zoom), int(orig_h * zoom)))
     h, w = frame.shape[:2]
 
     # Draw annotations
     for i, obj in enumerate(objects):
-        cx, cy, bw, bh = from_normalized_center(obj["bbox"], w, h)
+        cx, cy, bw, bh = from_normalized_center(obj["bbox"], orig_w, orig_h)
         x1, y1 = cx - bw // 2, cy - bh // 2
         x2, y2 = cx + bw // 2, cy + bh // 2
+        x1 = int(x1 * zoom)
+        y1 = int(y1 * zoom)
+        x2 = int(x2 * zoom)
+        y2 = int(y2 * zoom)
         color = (0, 200, 0)
         if hovered_idx == i and mode == "DELETE":
             color = (0, 165, 255)  # highlight
@@ -68,15 +71,43 @@ def draw_annotations(frame, objects, status, preview_box=None, hovered_idx=None,
 
 
 # ------------------- Review Tool -------------------
+def _normalize_annotations(annotations):
+    if not isinstance(annotations, dict):
+        return {}
+
+    for frame_file, entry in list(annotations.items()):
+        if not isinstance(entry, dict):
+            entry = {}
+        entry.setdefault("objects", [])
+        entry.setdefault("Status", "pending")
+        annotations[frame_file] = entry
+
+    return annotations
+
+
 def start_review(input_dir, annotation_file, mode="pending"):
+    if not os.path.exists(annotation_file):
+        logger.error(f"Annotation file not found: {annotation_file}")
+        return
+
     with open(annotation_file, "r") as f:
         annotations = json.load(f)
 
+    annotations = _normalize_annotations(annotations)
+
     # Filter frames
     if mode == "pending":
-        frame_files = [f for f, ann in annotations.items() if ann.get("Status", "pending") == "pending"]
+        frame_files = [
+            f
+            for f, ann in annotations.items()
+            if ann.get("Status", "pending") == "pending"
+        ]
     else:  # "review"
         frame_files = list(annotations.keys())
+
+    frame_files = sorted(
+        [f for f in frame_files if os.path.exists(os.path.join(input_dir, f))]
+    )
 
     if not frame_files:
         logger.info("No frames available for review.")
@@ -88,11 +119,23 @@ def start_review(input_dir, annotation_file, mode="pending"):
     hovered_idx = None
     zoom = 1.0
     edit_mode = "VIEW"
+    current_shape = None
 
-    cv2.namedWindow("Review")
+    tk_root = tk.Tk()
+    tk_root.withdraw()
+    tk_root.attributes("-topmost", True)
+
+    cv2.namedWindow("Review", cv2.WINDOW_NORMAL)
 
     def mouse_cb(event, x, y, flags, param):
         nonlocal preview_box, hovered_idx, edit_mode, box
+
+        if current_shape is None:
+            return
+
+        orig_h, orig_w = current_shape
+        ox = int(x / zoom)
+        oy = int(y / zoom)
 
         if edit_mode == "CREATE":
             if event == cv2.EVENT_LBUTTONDOWN:
@@ -105,9 +148,11 @@ def start_review(input_dir, annotation_file, mode="pending"):
                 x2, y2 = x, y
                 cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                 bw, bh = abs(x2 - x1), abs(y2 - y1)
-                frame = cv2.imread(os.path.join(input_dir, frame_files[idx]))
-                h, w = frame.shape[:2]
-                norm_box = to_normalized_center(cx, cy, bw, bh, w, h)
+                cx = int(cx / zoom)
+                cy = int(cy / zoom)
+                bw = int(bw / zoom)
+                bh = int(bh / zoom)
+                norm_box = to_normalized_center(cx, cy, bw, bh, orig_w, orig_h)
                 label = simpledialog.askstring("Label", "Enter label:")
                 if label:
                     new_obj = {"bbox": norm_box, "label": label}
@@ -121,12 +166,10 @@ def start_review(input_dir, annotation_file, mode="pending"):
 
         elif edit_mode == "DELETE":
             if event == cv2.EVENT_MOUSEMOVE:
-                frame = cv2.imread(os.path.join(input_dir, frame_files[idx]))
-                h, w = frame.shape[:2]
                 hovered_idx = None
                 for i, obj in enumerate(annotations[frame_files[idx]]["objects"]):
-                    cx, cy, bw, bh = from_normalized_center(obj["bbox"], w, h)
-                    if cx - bw // 2 <= x <= cx + bw // 2 and cy - bh // 2 <= y <= cy + bh // 2:
+                    cx, cy, bw, bh = from_normalized_center(obj["bbox"], orig_w, orig_h)
+                    if cx - bw // 2 <= ox <= cx + bw // 2 and cy - bh // 2 <= oy <= cy + bh // 2:
                         hovered_idx = i
                         break
             elif event == cv2.EVENT_LBUTTONDOWN and hovered_idx is not None:
@@ -143,8 +186,14 @@ def start_review(input_dir, annotation_file, mode="pending"):
         frame_file = frame_files[idx]
         frame = cv2.imread(os.path.join(input_dir, frame_file))
         if frame is None:
-            idx = (idx + 1) % len(frame_files)
+            frame_files.pop(idx)
+            if not frame_files:
+                logger.info("No readable frames available for review.")
+                break
+            idx = idx % len(frame_files)
             continue
+
+        current_shape = frame.shape[:2]
 
         status = annotations[frame_file].get("Status", "pending")
         disp = draw_annotations(frame, annotations[frame_file]["objects"], status,
@@ -154,27 +203,38 @@ def start_review(input_dir, annotation_file, mode="pending"):
 
         if key in (ord('q'), ord('Q')):
             break
-        elif key in (ord('n'), ord('N')):
+        elif key in (ord("n"), ord("N")):
             idx = (idx + 1) % len(frame_files)
             edit_mode = "VIEW"
-        elif key in (ord('p'), ord('P')):
+        elif key in (ord("p"), ord("P")):
             idx = (idx - 1) % len(frame_files)
             edit_mode = "VIEW"
-        elif key in (ord('a'), ord('A')):  # approve
+        elif key in (ord("a"), ord("A")):  # approve
             annotations[frame_file]["Status"] = "approved"
             with open(annotation_file, "w") as f:
                 json.dump(annotations, f, indent=2)
             logger.info(f"Frame {frame_file} approved.")
-        elif key in (ord('d'), ord('D')):
+
+            if mode == "pending":
+                frame_files.pop(idx)
+                if not frame_files:
+                    logger.info("All pending frames approved.")
+                    break
+                idx = idx % len(frame_files)
+            else:
+                idx = (idx + 1) % len(frame_files)
+            edit_mode = "VIEW"
+        elif key in (ord("d"), ord("D")):
             edit_mode = "DELETE"
-        elif key in (ord('c'), ord('C')):
+        elif key in (ord("c"), ord("C")):
             edit_mode = "CREATE"
-        elif key in (ord('z'), ord('Z')):
-            zoom *= 1.2
-        elif key in (ord('x'), ord('X')):
-            zoom /= 1.2
+        elif key in (ord("z"), ord("Z")):
+            zoom = min(zoom * 1.2, 5.0)
+        elif key in (ord("x"), ord("X")):
+            zoom = max(zoom / 1.2, 0.2)
 
     cv2.destroyAllWindows()
+    tk_root.destroy()
     with open(annotation_file, "w") as f:
         json.dump(annotations, f, indent=2)
 

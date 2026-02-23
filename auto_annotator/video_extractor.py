@@ -30,7 +30,12 @@ def extract_frames(video_path, target_fps, output_dir):
         logging.error(f"Could not determine FPS for {video_path}")
         return
 
-    frame_interval = int(original_fps // target_fps) if target_fps < original_fps else 1
+    if target_fps <= 0:
+        logging.error("Target FPS must be > 0")
+        return None
+
+    ratio = original_fps / target_fps
+    frame_interval = max(int(round(ratio)), 1)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     logging.info(f"Processing video: {video_name}")
@@ -55,11 +60,12 @@ def extract_frames(video_path, target_fps, output_dir):
 
     cap.release()
     logging.info(f"Saved {saved_count} frames to {save_dir}")
+    return save_dir
 
 def process_input(input_path, target_fps, output_dir=None):
     if not os.path.exists(input_path):
         logging.error(f"Input path does not exist: {input_path}")
-        return
+        return []
 
     # Default: always make a new "output" folder in current working directory
     if output_dir is None:
@@ -69,18 +75,24 @@ def process_input(input_path, target_fps, output_dir=None):
     if os.path.isfile(input_path):
         if not is_video_file(input_path):
             logging.error(f"Unsupported file type: {input_path}")
-            return
-        extract_frames(input_path, target_fps, output_dir)
+            return []
+        save_dir = extract_frames(input_path, target_fps, output_dir)
+        return [save_dir] if save_dir else []
 
     elif os.path.isdir(input_path):
+        save_dirs = []
         for filename in os.listdir(input_path):
             file_path = os.path.join(input_path, filename)
             if os.path.isfile(file_path) and is_video_file(filename):
-                extract_frames(file_path, target_fps, output_dir)
+                save_dir = extract_frames(file_path, target_fps, output_dir)
+                if save_dir:
+                    save_dirs.append(save_dir)
             else:
                 logging.warning(f"Skipping unsupported file: {filename}")
+        return save_dirs
     else:
         logging.error(f"Invalid input: {input_path}")
+        return []
 
 def main():
     parser = argparse.ArgumentParser(
