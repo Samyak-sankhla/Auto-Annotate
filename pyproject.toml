@@ -7,7 +7,7 @@ name = "auto_annotator"
 version = "0.2.0"
 description = "Auto annotation pipeline (frame-extract -> dedup -> GroundingDINO -> review)"
 authors = [{name = "WRAITH", email = "abc@example.com"}]
-requires-python = ">=3.8"
+requires-python = ">=3.9, <3.12"
 
 # runtime dependencies
 dependencies = [
@@ -17,7 +17,8 @@ dependencies = [
   "torch",
   "tqdm",
   "fastdup",
-  "groundingdino"
+  "groundeddino-vl",
+  "transformers<5",
 ]
 
 [tool.setuptools]

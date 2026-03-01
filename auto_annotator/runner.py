@@ -2,7 +2,7 @@ import os
 import json
 import argparse
 from tqdm import tqdm
-from groundingdino.util.inference import load_model, load_image, predict
+from groundeddino_vl.api import load_model, load_image, predict
 from . import review
 from .config import logger, resolve_gdino_paths
 
@@ -52,7 +52,7 @@ def run_gdino(
     annotations = _normalize_annotations(annotations, frame_files)
 
     # Identify frames to process
-    frames_to_process = [f for f in frame_files if f not in annotations]
+    frames_to_process = [f for f in frame_files if not annotations[f]['objects']]
     if not frames_to_process:
         logger.info("All frames already annotated. Skipping inference.")
         return annotation_file
@@ -69,13 +69,15 @@ def run_gdino(
         frame_path = os.path.join(input_dir, frame_file)
         image_source, image = load_image(frame_path)
 
-        boxes, logits, phrases = predict(
+        res = predict(
             model=model,
             image=image,
-            caption=prompt,
+            text_prompt=prompt,
             box_threshold=box_threshold,
             text_threshold=text_threshold,
         )
+
+        boxes, logits, phrases = res.boxes, res.scores, res.labels
 
         annotations[frame_file] = {
             "objects": [],
@@ -99,7 +101,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run GroundingDINO on frames")
     parser.add_argument("--input_dir", required=True, help="Directory with frames")
     parser.add_argument("--prompt", required=True, help="Text prompt for detection")
-    parser.add_argument("--videoname", required=True, help="Video name for annotation file")
+    parser.add_argument("--videoname", required=False, help="Video name for annotation file")
     parser.add_argument(
         "--review",
         choices=["pending", "review", "none"],
